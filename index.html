@@ -78,10 +78,12 @@
     input::placeholder { color: var(--muted); }
     select option { background: #222; color: var(--text); }
     .custom-cat-input { display: none; margin-top: 8px; }
-    .form-actions { display: flex; justify-content: flex-end; }
+    .form-actions { display: flex; justify-content: space-between; align-items: center; }
     .add-btn { background: var(--accent); color: #0f0f11; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; padding: 10px 24px; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
     .add-btn:hover { opacity: 0.85; }
     .add-btn:active { transform: scale(0.97); }
+    .manage-cats-btn { background: none; border: 1px solid var(--border2); color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; transition: color 0.12s; }
+    .manage-cats-btn:hover { color: var(--text); }
 
     .entries-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; flex: 1; }
     .entries-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
@@ -117,15 +119,20 @@
     .btn-primary { background: var(--orange); color: #fff; border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; padding: 9px 20px; border-radius: var(--radius-sm); cursor: pointer; transition: opacity 0.12s; }
     .btn-primary:hover { opacity: 0.85; }
 
+    .cat-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+    .cat-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 14px; color: var(--text); }
+    .cat-del-btn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 2px 6px; border-radius: 4px; font-size: 16px; transition: color 0.12s, background 0.12s; }
+    .cat-del-btn:hover { color: var(--red); background: var(--red-dim); }
+
     .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text); font-size: 13px; padding: 11px 18px; border-radius: 99px; opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 200; }
     .toast.show { opacity: 1; transform: translateY(0); }
 
     @media (max-width: 760px) {
-      .main { grid-template-columns: 1fr; }
-      .left-panel { border-right: none; border-bottom: 1px solid var(--border); }
+      .main { display: flex; flex-direction: column; }
+      .right-panel { order: 1; padding: 16px; }
+      .left-panel { order: 2; border-right: none; padding: 16px; }
       .form-grid { grid-template-columns: 1fr 1fr; }
       .topbar { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
-      .right-panel { padding: 20px 16px; }
     }
   </style>
 </head>
@@ -197,16 +204,7 @@
           </div>
           <div class="form-field">
             <label for="inputCategory">Category</label>
-            <select id="inputCategory">
-              <option value="Food">Food</option>
-              <option value="Boxing">Boxing</option>
-              <option value="Subscriptions">Subscriptions</option>
-              <option value="Transport">Transport</option>
-              <option value="Entertainment">Entertainment</option>
-              <option value="Health">Health</option>
-              <option value="Other">Other</option>
-              <option value="__custom__">+ Custom...</option>
-            </select>
+            <select id="inputCategory"></select>
             <input type="text" id="inputCustomCat" class="custom-cat-input" placeholder="Type category name" />
           </div>
           <div class="form-field">
@@ -215,6 +213,7 @@
           </div>
         </div>
         <div class="form-actions">
+          <button class="manage-cats-btn" id="manageCatsBtn">Manage categories</button>
           <button class="add-btn" id="addExpenseBtn">+ Add</button>
         </div>
       </div>
@@ -243,10 +242,26 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="catsModal">
+    <div class="modal">
+      <h2>Manage categories</h2>
+      <div class="cat-list" id="catList"></div>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <input type="text" id="newCatInput" placeholder="New category name" style="flex:1;" />
+        <button class="btn-primary" id="addCatBtn" style="white-space:nowrap;">+ Add</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="closeCatsBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
+    var DEFAULT_CATS = ['Entertainment', 'Food', 'Health', 'Other', 'Rent', 'Subscriptions', 'Transport'];
+
     var PALETTE = [
       '#c8f55a','#ff7eb9','#6ac8f5','#ffc04a','#a78bfa',
       '#34d399','#f87171','#38bdf8','#fb923c','#e879f9',
@@ -288,6 +303,101 @@
     function getBudget() { return parseFloat(localStorage.getItem(budgetKey()) || '0'); }
     function saveBudgetVal(value) { localStorage.setItem(budgetKey(), value); }
 
+    function getCustomCats() {
+      try { return JSON.parse(localStorage.getItem('custom_cats') || '[]'); }
+      catch(e) { return []; }
+    }
+    function saveCustomCats(cats) { localStorage.setItem('custom_cats', JSON.stringify(cats)); }
+
+    function getRemovedDefaults() {
+      try { return JSON.parse(localStorage.getItem('removed_defaults') || '[]'); }
+      catch(e) { return []; }
+    }
+    function saveRemovedDefaults(arr) { localStorage.setItem('removed_defaults', JSON.stringify(arr)); }
+
+    function getAllCatsSorted() {
+      var custom   = getCustomCats();
+      var removed  = getRemovedDefaults();
+      var defaults = DEFAULT_CATS.filter(function(c) { return removed.indexOf(c) === -1; });
+      var all      = defaults.concat(custom.filter(function(c) { return defaults.indexOf(c) === -1; }));
+      return all.sort();
+    }
+
+    function buildCategoryDropdown() {
+  var sel     = document.getElementById('inputCategory');
+  var current = sel.value;
+  var cats    = getAllCatsSorted().filter(function(c) { return c !== 'Other'; });
+  sel.innerHTML = '';
+  cats.forEach(function(cat) {
+    var opt         = document.createElement('option');
+    opt.value       = cat;
+    opt.textContent = cat;
+    sel.appendChild(opt);
+  });
+  // Other pinned just above + Custom...
+  var otherOpt         = document.createElement('option');
+  otherOpt.value       = 'Other';
+  otherOpt.textContent = 'Other';
+  sel.appendChild(otherOpt);
+  // + Custom... always last
+  var customOpt         = document.createElement('option');
+  customOpt.value       = '__custom__';
+  customOpt.textContent = '+ Add';
+  sel.appendChild(customOpt);
+  if (current && current !== '__custom__') sel.value = current;
+}
+
+    function openCatsModal() {
+      renderCatList();
+      document.getElementById('catsModal').classList.add('open');
+    }
+    function closeCatsModal() {
+      document.getElementById('catsModal').classList.remove('open');
+      document.getElementById('newCatInput').value = '';
+      buildCategoryDropdown();
+      render();
+    }
+
+    function renderCatList() {
+      var el   = document.getElementById('catList');
+      var all  = getAllCatsSorted();
+      el.innerHTML = all.map(function(cat) {
+        return '<div class="cat-item">' +
+          '<span>' + esc(cat) + '</span>' +
+          '<button class="cat-del-btn" onclick="deleteCat(\'' + esc(cat) + '\')">×</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    function addCustomCat() {
+      var input = document.getElementById('newCatInput');
+      var name  = input.value.trim();
+      if (!name) { showToast('Enter a category name'); return; }
+      var all = getAllCatsSorted();
+      if (all.map(function(c) { return c.toLowerCase(); }).indexOf(name.toLowerCase()) !== -1) {
+        showToast('Category already exists'); return;
+      }
+      var custom = getCustomCats();
+      custom.push(name);
+      saveCustomCats(custom);
+      input.value = '';
+      renderCatList();
+      showToast('Category added');
+    }
+
+    function deleteCat(name) {
+      if (DEFAULT_CATS.indexOf(name) !== -1) {
+        var removed = getRemovedDefaults();
+        if (removed.indexOf(name) === -1) { removed.push(name); saveRemovedDefaults(removed); }
+      } else {
+        var custom = getCustomCats();
+        custom = custom.filter(function(c) { return c !== name; });
+        saveCustomCats(custom);
+      }
+      renderCatList();
+      showToast('Category removed');
+    }
+
     var MONTH_NAMES = ['January','February','March','April','May','June',
                        'July','August','September','October','November','December'];
 
@@ -308,7 +418,15 @@
     function getSelectedCategory() {
       var sel = document.getElementById('inputCategory');
       if (sel.value === '__custom__') {
-        return document.getElementById('inputCustomCat').value.trim() || null;
+        var val = document.getElementById('inputCustomCat').value.trim();
+        if (val) {
+          var custom = getCustomCats();
+          if (custom.indexOf(val) === -1 && DEFAULT_CATS.indexOf(val) === -1) {
+            custom.push(val);
+            saveCustomCats(custom);
+          }
+        }
+        return val || null;
       }
       return sel.value;
     }
@@ -325,9 +443,9 @@
       saveEntries(entries);
       document.getElementById('inputAmount').value   = '';
       document.getElementById('inputNote').value     = '';
-      document.getElementById('inputCategory').value = 'Food';
       document.getElementById('inputCustomCat').style.display = 'none';
       document.getElementById('inputCustomCat').value = '';
+      buildCategoryDropdown();
       showToast('Expense added');
       render();
     }
@@ -447,7 +565,7 @@
       var el = document.getElementById('chartLegend');
       if (cats.length === 0) { el.innerHTML = ''; return; }
       el.innerHTML = cats.map(function(cat) {
-        var pct = total > 0 ? Math.round((catTotals[cat] / total) * 100) : 0;
+        var pct   = total > 0 ? Math.round((catTotals[cat] / total) * 100) : 0;
         var color = getCatColor(cat);
         return '<div class="legend-row"><div class="legend-left"><span class="legend-dot" style="background:' + color + ';"></span><span class="legend-name">' + esc(cat) + '</span></div><div class="legend-right"><span class="legend-pct">' + pct + '%</span><span class="legend-amt">' + formatBHD(catTotals[cat]) + '</span></div></div>';
       }).join('');
@@ -482,14 +600,20 @@
     document.getElementById('cancelBudgetBtn').addEventListener('click', closeBudgetModal);
     document.getElementById('saveBudgetBtn').addEventListener('click', handleSaveBudget);
     document.getElementById('budgetModal').addEventListener('click', function(e) { if (e.target === this) closeBudgetModal(); });
+    document.getElementById('manageCatsBtn').addEventListener('click', openCatsModal);
+    document.getElementById('closeCatsBtn').addEventListener('click', closeCatsModal);
+    document.getElementById('catsModal').addEventListener('click', function(e) { if (e.target === this) closeCatsModal(); });
+    document.getElementById('addCatBtn').addEventListener('click', addCustomCat);
+    document.getElementById('newCatInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') addCustomCat(); });
     document.addEventListener('keydown', function(e) {
       var fields = ['inputAmount','inputNote','inputCustomCat'];
       if (e.key === 'Enter' && fields.indexOf(document.activeElement.id) !== -1) addExpense();
       if (e.key === 'Enter' && document.activeElement.id === 'budgetInput') handleSaveBudget();
-      if (e.key === 'Escape') closeBudgetModal();
+      if (e.key === 'Escape') { closeBudgetModal(); closeCatsModal(); }
     });
 
+    buildCategoryDropdown();
     render();
   </script>
 </body>
-</html>z
+</html>
