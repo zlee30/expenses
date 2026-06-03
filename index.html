@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expenses</title>
+  <link rel="icon" type="image/png" href="ZL.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Rubik:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0f11; --surface: #18181c; --surface2: #222228;
+      --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.13);
+      --text: #f0eff4; --muted: #888896; --accent: #c8f55a;
+      --red: #ff5f5f; --red-dim: rgba(255,95,95,0.12); --amber: #ffc04a;
+      --orange: #ff8c42;
+      --radius: 14px; --radius-sm: 8px;
+    }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; font-family: 'DM Sans', sans-serif; }
+
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; flex-wrap: nowrap; }
+    .topbar-logo { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; display: flex; align-items: center; gap: 10px; }
+    .topbar-logo img { width: 44px; height: 28px; object-fit: contain; mix-blend-mode: screen; }
+    .month-nav { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; }
+    .month-nav button { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 8px 14px; transition: color 0.15s, background 0.15s; line-height: 1; }
+    .month-nav button:hover { color: var(--text); background: var(--surface2); }
+    .month-nav-label { display: flex; flex-direction: column; align-items: center; padding: 6px 8px; min-width: 110px; }
+    .month-nav-year { font-size: 11px; font-weight: 400; color: var(--muted); letter-spacing: 0.5px; line-height: 1; margin-bottom: 3px; }
+    .month-nav-month { font-size: 16px; font-weight: 700; color: var(--text); line-height: 1; letter-spacing: -0.2px; }
+    .budget-btn { background: var(--orange); border: none; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 99px; cursor: pointer; transition: opacity 0.15s; }
+    .budget-btn:hover { opacity: 0.85; }
+
+    .main { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 65px); }
+    .left-panel { border-right: 1px solid var(--border); padding: 24px 20px; display: flex; flex-direction: column; gap: 24px; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .metric-card.full { grid-column: 1 / -1; }
+    .metric-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); margin-bottom: 6px; }
+    .metric-value { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; font-family: 'Rubik', sans-serif; }
+    .metric-value.green { color: var(--accent); }
+    .metric-value.red { color: var(--red); }
+    .metric-value.amber { color: var(--amber); }
+    .over-budget-tag { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 600; font-family: 'Rubik', sans-serif; color: var(--red); background: var(--red-dim); padding: 3px 8px; border-radius: 99px; }
+
+    .budget-progress { margin-top: 10px; }
+    .budget-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 7px; }
+    .budget-track { height: 5px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+    .budget-fill { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.4s ease; }
+    .budget-fill.warn { background: var(--amber); }
+    .budget-fill.over { background: var(--red); }
+
+    .chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+    .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); margin-bottom: 14px; }
+    .chart-canvas-wrap { position: relative; width: 100%; height: 200px; margin-bottom: 16px; }
+    .empty-chart { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; gap: 8px; }
+    .empty-icon { font-size: 32px; opacity: 0.3; }
+    .chart-legend { display: flex; flex-direction: column; gap: 7px; }
+    .legend-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+    .legend-left { display: flex; align-items: center; gap: 8px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .legend-name { color: var(--text); }
+    .legend-right { display: flex; align-items: center; gap: 10px; }
+    .legend-pct { color: var(--muted); font-size: 12px; font-family: 'Rubik', sans-serif; }
+    .legend-amt { color: var(--text); font-size: 12px; font-family: 'Rubik', sans-serif; font-weight: 600; }
+
+    .right-panel { padding: 24px 28px; display: flex; flex-direction: column; gap: 24px; }
+    .add-form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; }
+    .form-grid { display: grid; grid-template-columns: 130px 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .form-field { display: flex; flex-direction: column; }
+    label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; display: block; }
+    input, select { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 10px 12px; outline: none; transition: border-color 0.15s; -webkit-appearance: none; appearance: none; }
+    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input:focus, select:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+    select option { background: #222; color: var(--text); }
+    .custom-cat-input { display: none; margin-top: 8px; }
+    .form-actions { display: flex; justify-content: flex-end; }
+    .add-btn { background: var(--accent); color: #0f0f11; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; padding: 10px 24px; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
+    .add-btn:hover { opacity: 0.85; }
+    .add-btn:active { transform: scale(0.97); }
+
+    .entries-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; flex: 1; }
+    .entries-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .entries-header .section-title { margin-bottom: 0; }
+    .entries-count { font-size: 12px; color: var(--muted); background: var(--surface2); padding: 3px 10px; border-radius: 99px; }
+    .entries-list { max-height: 420px; overflow-y: auto; }
+    .entries-list::-webkit-scrollbar { width: 4px; }
+    .entries-list::-webkit-scrollbar-track { background: transparent; }
+    .entries-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+    .entry-row { display: flex; align-items: center; padding: 13px 20px; border-bottom: 1px solid var(--border); gap: 12px; transition: background 0.12s; }
+    .entry-row:last-child { border-bottom: none; }
+    .entry-row:hover { background: var(--surface2); }
+    .entry-cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .entry-info { flex: 1; min-width: 0; }
+    .entry-name { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entry-note { font-size: 12px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entry-right { display: flex; align-items: center; gap: 14px; }
+    .entry-date { font-size: 12px; color: var(--muted); }
+    .entry-amount { font-size: 13px; font-weight: 600; color: var(--text); font-family: 'Rubik', sans-serif; min-width: 70px; text-align: right; }
+    .entry-del { background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: color 0.12s, background 0.12s; }
+    .entry-del:hover { color: var(--red); background: var(--red-dim); }
+    .empty-state { padding: 50px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+    .empty-state .big { font-size: 36px; margin-bottom: 10px; opacity: 0.25; }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 28px; width: 360px; max-width: 90vw; display: flex; flex-direction: column; gap: 14px; }
+    .modal h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; color: var(--text); }
+    .modal label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; display: block; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+    .btn-ghost { background: none; border: 1px solid var(--border2); color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 9px 18px; border-radius: var(--radius-sm); cursor: pointer; transition: color 0.12s; }
+    .btn-ghost:hover { color: var(--text); }
+    .btn-primary { background: var(--orange); color: #fff; border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; padding: 9px 20px; border-radius: var(--radius-sm); cursor: pointer; transition: opacity 0.12s; }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text); font-size: 13px; padding: 11px 18px; border-radius: 99px; opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 200; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 760px) {
+      .main { grid-template-columns: 1fr; }
+      .left-panel { border-right: none; border-bottom: 1px solid var(--border); }
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .topbar { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+      .right-panel { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-logo">
+      <img src="ZL.png" alt="ZL logo" />
+      Expenses
+    </div>
+    <nav class="month-nav" aria-label="Month navigation">
+      <button id="prevMonth" aria-label="Previous month">&#8249;</button>
+      <div class="month-nav-label">
+        <span class="month-nav-year" id="navYear"></span>
+        <span class="month-nav-month" id="navMonth"></span>
+      </div>
+      <button id="nextMonth" aria-label="Next month">&#8250;</button>
+    </nav>
+    <button class="budget-btn" id="openBudgetBtn">Set budget</button>
+  </header>
+
+  <main class="main">
+    <aside class="left-panel">
+      <section class="metrics">
+        <div class="metric-card">
+          <p class="metric-label">Total spent</p>
+          <p class="metric-value" id="metricSpent">BHD 0.000</p>
+        </div>
+        <div class="metric-card">
+          <p class="metric-label">Entries</p>
+          <p class="metric-value" id="metricCount">0</p>
+        </div>
+        <div class="metric-card full">
+          <p class="metric-label">Remaining budget</p>
+          <p class="metric-value" id="metricRemaining">—</p>
+          <div id="overBudgetTag"></div>
+          <div class="budget-progress">
+            <div class="budget-row">
+              <span id="budgetUsedLabel">No budget set</span>
+              <span id="budgetPct"></span>
+            </div>
+            <div class="budget-track">
+              <div class="budget-fill" id="budgetFill" style="width:0%;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="chart-wrap">
+        <p class="section-title">Breakdown by category</p>
+        <div class="chart-canvas-wrap">
+          <canvas id="pieChart"></canvas>
+          <div class="empty-chart" id="emptyChart">
+            <div class="empty-icon">◎</div>
+            <span>No data yet</span>
+          </div>
+        </div>
+        <div class="chart-legend" id="chartLegend"></div>
+      </section>
+    </aside>
+
+    <section class="right-panel">
+      <div class="add-form-card">
+        <p class="section-title">Add expense</p>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="inputAmount">Amount (BHD)</label>
+            <input type="number" id="inputAmount" placeholder="0.000" min="0" step="0.001" />
+          </div>
+          <div class="form-field">
+            <label for="inputCategory">Category</label>
+            <select id="inputCategory">
+              <option value="Food">Food</option>
+              <option value="Boxing">Boxing</option>
+              <option value="Subscriptions">Subscriptions</option>
+              <option value="Transport">Transport</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Health">Health</option>
+              <option value="Other">Other</option>
+              <option value="__custom__">+ Custom...</option>
+            </select>
+            <input type="text" id="inputCustomCat" class="custom-cat-input" placeholder="Type category name" />
+          </div>
+          <div class="form-field">
+            <label for="inputNote">Note (optional)</label>
+            <input type="text" id="inputNote" placeholder="" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="add-btn" id="addExpenseBtn">+ Add</button>
+        </div>
+      </div>
+
+      <div class="entries-card">
+        <div class="entries-header">
+          <p class="section-title">Recent entries</p>
+          <span class="entries-count" id="entriesCount">0 entries</span>
+        </div>
+        <div class="entries-list" id="entriesList"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="budgetModal">
+    <div class="modal">
+      <h2>Set monthly budget</h2>
+      <div>
+        <label for="budgetInput">Budget amount (BHD)</label>
+        <input type="number" id="budgetInput" placeholder="500" min="0" step="0.001" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="cancelBudgetBtn">Cancel</button>
+        <button class="btn-primary" id="saveBudgetBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script>
+    var PALETTE = [
+      '#c8f55a','#ff7eb9','#6ac8f5','#ffc04a','#a78bfa',
+      '#34d399','#f87171','#38bdf8','#fb923c','#e879f9',
+      '#4ade80','#facc15','#60a5fa','#f472b6','#a3e635'
+    ];
+
+    function getCatColor(category) {
+      var allCats = getAllCategories();
+      var index = allCats.indexOf(category);
+      return PALETTE[((index % PALETTE.length) + PALETTE.length) % PALETTE.length];
+    }
+
+    function getAllCategories() {
+      var seen = {};
+      Object.values(loadAllData()).forEach(function(entries) {
+        entries.forEach(function(e) { seen[e.category] = true; });
+      });
+      return Object.keys(seen);
+    }
+
+    var currentYear  = new Date().getFullYear();
+    var currentMonth = new Date().getMonth();
+    var pieChart     = null;
+
+    function storageKey() { return 'expenses_' + currentYear + '_' + currentMonth; }
+    function budgetKey()  { return 'budget_'   + currentYear + '_' + currentMonth; }
+
+    function loadAllData() {
+      try { return JSON.parse(localStorage.getItem('expenses_all') || '{}'); }
+      catch(e) { return {}; }
+    }
+    function saveAllData(data) { localStorage.setItem('expenses_all', JSON.stringify(data)); }
+    function getEntries() { return loadAllData()[storageKey()] || []; }
+    function saveEntries(entries) {
+      var data = loadAllData();
+      data[storageKey()] = entries;
+      saveAllData(data);
+    }
+    function getBudget() { return parseFloat(localStorage.getItem(budgetKey()) || '0'); }
+    function saveBudgetVal(value) { localStorage.setItem(budgetKey(), value); }
+
+    var MONTH_NAMES = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December'];
+
+    function changeMonth(direction) {
+      currentMonth += direction;
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+      render();
+    }
+
+    function handleCategoryChange() {
+      var sel = document.getElementById('inputCategory');
+      var box = document.getElementById('inputCustomCat');
+      if (sel.value === '__custom__') { box.style.display = 'block'; box.focus(); }
+      else { box.style.display = 'none'; box.value = ''; }
+    }
+
+    function getSelectedCategory() {
+      var sel = document.getElementById('inputCategory');
+      if (sel.value === '__custom__') {
+        return document.getElementById('inputCustomCat').value.trim() || null;
+      }
+      return sel.value;
+    }
+
+    function addExpense() {
+      var amount   = parseFloat(document.getElementById('inputAmount').value);
+      var category = getSelectedCategory();
+      var note     = document.getElementById('inputNote').value.trim();
+      if (!amount || isNaN(amount) || amount <= 0) { showToast('Enter a valid amount'); return; }
+      if (!category) { showToast('Enter a category name'); return; }
+      var entry = { id: Date.now(), amount: amount, category: category, note: note, date: new Date().toISOString() };
+      var entries = getEntries();
+      entries.unshift(entry);
+      saveEntries(entries);
+      document.getElementById('inputAmount').value   = '';
+      document.getElementById('inputNote').value     = '';
+      document.getElementById('inputCategory').value = 'Food';
+      document.getElementById('inputCustomCat').style.display = 'none';
+      document.getElementById('inputCustomCat').value = '';
+      showToast('Expense added');
+      render();
+    }
+
+    function deleteExpense(id) {
+      saveEntries(getEntries().filter(function(e) { return e.id !== id; }));
+      render();
+    }
+
+    function openBudgetModal() {
+      var current = getBudget();
+      document.getElementById('budgetInput').value = current > 0 ? current : '';
+      document.getElementById('budgetModal').classList.add('open');
+      setTimeout(function() { document.getElementById('budgetInput').focus(); }, 50);
+    }
+    function closeBudgetModal() { document.getElementById('budgetModal').classList.remove('open'); }
+    function handleSaveBudget() {
+      var value = parseFloat(document.getElementById('budgetInput').value);
+      if (!isNaN(value) && value >= 0) { saveBudgetVal(value); showToast('Budget saved'); render(); }
+      closeBudgetModal();
+    }
+
+    var toastTimer = null;
+    function showToast(message) {
+      var el = document.getElementById('toast');
+      el.textContent = message;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2200);
+    }
+
+    function formatBHD(amount) { return 'BHD ' + amount.toFixed(3); }
+    function formatDate(iso) { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); }
+    function esc(str) { return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function render() {
+      document.getElementById('navYear').textContent  = currentYear;
+      document.getElementById('navMonth').textContent = MONTH_NAMES[currentMonth];
+
+      var entries   = getEntries();
+      var budget    = getBudget();
+      var total     = entries.reduce(function(s,e){ return s + e.amount; }, 0);
+      var remaining = budget - total;
+      var pct       = budget > 0 ? Math.min((total / budget) * 100, 100) : 0;
+      var overBy    = total - budget;
+
+      document.getElementById('metricSpent').textContent = formatBHD(total);
+      document.getElementById('metricCount').textContent = entries.length;
+
+      var remEl = document.getElementById('metricRemaining');
+      var tagEl = document.getElementById('overBudgetTag');
+
+      if (budget === 0) {
+        remEl.textContent = '—'; remEl.className = 'metric-value'; tagEl.innerHTML = '';
+      } else if (remaining < 0) {
+        remEl.textContent = '—'; remEl.className = 'metric-value red';
+        tagEl.innerHTML = '<span class="over-budget-tag">Over by ' + formatBHD(overBy) + '</span>';
+      } else {
+        remEl.textContent = formatBHD(remaining);
+        remEl.className = 'metric-value ' + (remaining < budget * 0.15 ? 'amber' : 'green');
+        tagEl.innerHTML = '';
+      }
+
+      document.getElementById('budgetUsedLabel').textContent = budget > 0 ? formatBHD(total) + ' of ' + formatBHD(budget) : 'No budget set';
+      document.getElementById('budgetPct').textContent = budget > 0 ? Math.round(pct) + '%' : '';
+
+      var fill = document.getElementById('budgetFill');
+      fill.style.width = pct + '%';
+      fill.className = 'budget-fill' + (pct >= 100 ? ' over' : pct >= 80 ? ' warn' : '');
+      document.getElementById('entriesCount').textContent = entries.length + (entries.length === 1 ? ' entry' : ' entries');
+
+      var catTotals = {};
+      entries.forEach(function(e) { catTotals[e.category] = (catTotals[e.category] || 0) + e.amount; });
+      var cats = Object.keys(catTotals).sort(function(a,b){ return catTotals[b] - catTotals[a]; });
+
+      renderChart(cats, catTotals, total);
+      renderLegend(cats, catTotals, total);
+      renderEntries(entries);
+    }
+
+    function renderChart(cats, catTotals, total) {
+      var canvas = document.getElementById('pieChart');
+      var empty  = document.getElementById('emptyChart');
+      if (cats.length === 0) {
+        canvas.style.display = 'none'; empty.style.display = 'flex';
+        if (pieChart) { pieChart.destroy(); pieChart = null; }
+        return;
+      }
+      canvas.style.display = 'block'; empty.style.display = 'none';
+      var data   = cats.map(function(c){ return catTotals[c]; });
+      var colors = cats.map(function(c){ return getCatColor(c); });
+      if (pieChart) {
+        pieChart.data.labels = cats;
+        pieChart.data.datasets[0].data = data;
+        pieChart.data.datasets[0].backgroundColor = colors;
+        pieChart.update();
+      } else {
+        pieChart = new Chart(canvas, {
+          type: 'doughnut',
+          data: { labels: cats, datasets: [{ data: data, backgroundColor: colors, borderWidth: 3, borderColor: '#18181c', hoverBorderColor: '#18181c' }] },
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: '62%',
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: { label: function(ctx) { return ' ' + formatBHD(ctx.raw) + '  (' + Math.round((ctx.raw / (total || 1)) * 100) + '%)'; } },
+                backgroundColor: '#222228', borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1, titleColor: '#f0eff4', bodyColor: '#c8f55a', padding: 10
+              }
+            }
+          }
+        });
+      }
+    }
+
+    function renderLegend(cats, catTotals, total) {
+      var el = document.getElementById('chartLegend');
+      if (cats.length === 0) { el.innerHTML = ''; return; }
+      el.innerHTML = cats.map(function(cat) {
+        var pct = total > 0 ? Math.round((catTotals[cat] / total) * 100) : 0;
+        var color = getCatColor(cat);
+        return '<div class="legend-row"><div class="legend-left"><span class="legend-dot" style="background:' + color + ';"></span><span class="legend-name">' + esc(cat) + '</span></div><div class="legend-right"><span class="legend-pct">' + pct + '%</span><span class="legend-amt">' + formatBHD(catTotals[cat]) + '</span></div></div>';
+      }).join('');
+    }
+
+    function renderEntries(entries) {
+      var el = document.getElementById('entriesList');
+      if (entries.length === 0) {
+        el.innerHTML = '<div class="empty-state"><div class="big">◎</div>No expenses recorded for this month</div>';
+        return;
+      }
+      el.innerHTML = entries.map(function(entry) {
+        var color = getCatColor(entry.category);
+        return '<div class="entry-row">' +
+          '<span class="entry-cat-dot" style="background:' + color + ';"></span>' +
+          '<div class="entry-info"><div class="entry-name">' + esc(entry.category) + '</div>' +
+          (entry.note ? '<div class="entry-note">' + esc(entry.note) + '</div>' : '') + '</div>' +
+          '<div class="entry-right">' +
+          '<span class="entry-date">' + formatDate(entry.date) + '</span>' +
+          '<span class="entry-amount">' + formatBHD(entry.amount) + '</span>' +
+          '<button class="entry-del" onclick="deleteExpense(' + entry.id + ')" aria-label="Delete">' +
+          '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>' +
+          '</button></div></div>';
+      }).join('');
+    }
+
+    document.getElementById('prevMonth').addEventListener('click', function() { changeMonth(-1); });
+    document.getElementById('nextMonth').addEventListener('click', function() { changeMonth(1); });
+    document.getElementById('addExpenseBtn').addEventListener('click', addExpense);
+    document.getElementById('inputCategory').addEventListener('change', handleCategoryChange);
+    document.getElementById('openBudgetBtn').addEventListener('click', openBudgetModal);
+    document.getElementById('cancelBudgetBtn').addEventListener('click', closeBudgetModal);
+    document.getElementById('saveBudgetBtn').addEventListener('click', handleSaveBudget);
+    document.getElementById('budgetModal').addEventListener('click', function(e) { if (e.target === this) closeBudgetModal(); });
+    document.addEventListener('keydown', function(e) {
+      var fields = ['inputAmount','inputNote','inputCustomCat'];
+      if (e.key === 'Enter' && fields.indexOf(document.activeElement.id) !== -1) addExpense();
+      if (e.key === 'Enter' && document.activeElement.id === 'budgetInput') handleSaveBudget();
+      if (e.key === 'Escape') closeBudgetModal();
+    });
+
+    render();
+  </script>
+</body>
+</html>z
