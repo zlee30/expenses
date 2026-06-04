@@ -23,6 +23,7 @@
     .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; flex-wrap: nowrap; }
     .topbar-logo { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; display: flex; align-items: center; gap: 10px; }
     .topbar-logo img { width: 44px; height: 28px; object-fit: contain; mix-blend-mode: screen; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
     .month-nav { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; }
     .month-nav button { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 8px 14px; transition: color 0.15s, background 0.15s; line-height: 1; }
     .month-nav button:hover { color: var(--text); background: var(--surface2); }
@@ -31,6 +32,8 @@
     .month-nav-month { font-size: 16px; font-weight: 700; color: var(--text); line-height: 1; letter-spacing: -0.2px; }
     .budget-btn { background: var(--orange); border: none; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 99px; cursor: pointer; transition: opacity 0.15s; }
     .budget-btn:hover { opacity: 0.85; }
+    .print-btn { background: none; border: 1px solid var(--border2); color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; padding: 8px 14px; border-radius: 99px; cursor: pointer; transition: color 0.15s, background 0.15s; display: flex; align-items: center; gap: 6px; }
+    .print-btn:hover { color: var(--text); background: var(--surface2); }
 
     .main { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 65px); }
     .left-panel { border-right: 1px solid var(--border); padding: 24px 20px; display: flex; flex-direction: column; gap: 24px; }
@@ -70,7 +73,13 @@
     .form-grid { display: grid; grid-template-columns: 130px 1fr 1fr; gap: 10px; margin-bottom: 14px; }
     .form-field { display: flex; flex-direction: column; }
     label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; display: block; }
-    input, select { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 10px 12px; outline: none; transition: border-color 0.15s; -webkit-appearance: none; appearance: none; }
+    input, select {
+      width: 100%; background: var(--bg); border: 1px solid var(--border2);
+      border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif;
+      font-size: 16px; /* 16px prevents iOS zoom */
+      padding: 10px 12px; outline: none; transition: border-color 0.15s;
+      -webkit-appearance: none; appearance: none;
+    }
     input[type="number"] { -moz-appearance: textfield; }
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -133,6 +142,19 @@
       .left-panel { order: 2; border-right: none; padding: 16px; }
       .form-grid { grid-template-columns: 1fr 1fr; }
       .topbar { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+      .print-btn span { display: none; }
+    }
+
+    @media print {
+      .topbar { position: static; }
+      .print-btn, .budget-btn, .manage-cats-btn, .add-btn, .entry-del, .month-nav button { display: none !important; }
+      .add-form-card { display: none; }
+      .entries-list { max-height: none; overflow: visible; }
+      body { background: white; color: black; }
+      .metric-card, .chart-wrap, .entries-card, .add-form-card { border: 1px solid #ccc; }
+      .metric-value, .entry-name, .entry-amount { color: black; }
+      .metric-label, .entry-note, .entry-date, .section-title { color: #555; }
+      .entry-row:hover { background: transparent; }
     }
   </style>
 </head>
@@ -151,7 +173,16 @@
       </div>
       <button id="nextMonth" aria-label="Next month">&#8250;</button>
     </nav>
-    <button class="budget-btn" id="openBudgetBtn">Set budget</button>
+    <div class="topbar-right">
+      <button class="print-btn" id="printBtn">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        <span>Print PDF</span>
+      </button>
+      <button class="budget-btn" id="openBudgetBtn">Set budget</button>
+    </div>
   </header>
 
   <main class="main">
@@ -260,7 +291,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
-    var DEFAULT_CATS = ['Entertainment', 'Food', 'Health', 'Other', 'Rent', 'Subscriptions', 'Transport'];
+    var DEFAULT_CATS = ['Entertainment', 'Food', 'Health', 'Rent', 'Subscriptions', 'Transport'];
 
     var PALETTE = [
       '#c8f55a','#ff7eb9','#6ac8f5','#ffc04a','#a78bfa',
@@ -285,6 +316,7 @@
     var currentYear  = new Date().getFullYear();
     var currentMonth = new Date().getMonth();
     var pieChart     = null;
+    var currentTotal = 0;
 
     function storageKey() { return 'expenses_' + currentYear + '_' + currentMonth; }
     function budgetKey()  { return 'budget_'   + currentYear + '_' + currentMonth; }
@@ -324,28 +356,31 @@
     }
 
     function buildCategoryDropdown() {
-  var sel     = document.getElementById('inputCategory');
-  var current = sel.value;
-  var cats    = getAllCatsSorted().filter(function(c) { return c !== 'Other'; });
-  sel.innerHTML = '';
-  cats.forEach(function(cat) {
-    var opt         = document.createElement('option');
-    opt.value       = cat;
-    opt.textContent = cat;
-    sel.appendChild(opt);
-  });
-  // Other pinned just above + Custom...
-  var otherOpt         = document.createElement('option');
-  otherOpt.value       = 'Other';
-  otherOpt.textContent = 'Other';
-  sel.appendChild(otherOpt);
-  // + Custom... always last
-  var customOpt         = document.createElement('option');
-  customOpt.value       = '__custom__';
-  customOpt.textContent = '+ Add';
-  sel.appendChild(customOpt);
-  if (current && current !== '__custom__') sel.value = current;
-}
+      var sel     = document.getElementById('inputCategory');
+      var current = sel.value;
+      // All categories sorted alphabetically, excluding Other
+      var cats = getAllCatsSorted().filter(function(c) { return c !== 'Other'; });
+      sel.innerHTML = '';
+      cats.forEach(function(cat) {
+        var opt         = document.createElement('option');
+        opt.value       = cat;
+        opt.textContent = cat;
+        sel.appendChild(opt);
+      });
+      // Other pinned just above + Custom...
+      var removed = getRemovedDefaults();
+      if (removed.indexOf('Other') === -1) {
+        var otherOpt         = document.createElement('option');
+        otherOpt.value       = 'Other';
+        otherOpt.textContent = 'Other';
+        sel.appendChild(otherOpt);
+      }
+      var customOpt         = document.createElement('option');
+      customOpt.value       = '__custom__';
+      customOpt.textContent = '+ Custom...';
+      sel.appendChild(customOpt);
+      if (current && current !== '__custom__') sel.value = current;
+    }
 
     function openCatsModal() {
       renderCatList();
@@ -359,8 +394,14 @@
     }
 
     function renderCatList() {
-      var el   = document.getElementById('catList');
-      var all  = getAllCatsSorted();
+      var el  = document.getElementById('catList');
+      var all = getAllCatsSorted();
+      // Also add Other if not removed
+      var removed = getRemovedDefaults();
+      if (removed.indexOf('Other') === -1 && all.indexOf('Other') === -1) {
+        all.push('Other');
+        all.sort();
+      }
       el.innerHTML = all.map(function(cat) {
         return '<div class="cat-item">' +
           '<span>' + esc(cat) + '</span>' +
@@ -373,7 +414,9 @@
       var input = document.getElementById('newCatInput');
       var name  = input.value.trim();
       if (!name) { showToast('Enter a category name'); return; }
+      var removed = getRemovedDefaults();
       var all = getAllCatsSorted();
+      if (removed.indexOf('Other') === -1) all.push('Other');
       if (all.map(function(c) { return c.toLowerCase(); }).indexOf(name.toLowerCase()) !== -1) {
         showToast('Category already exists'); return;
       }
@@ -386,7 +429,7 @@
     }
 
     function deleteCat(name) {
-      if (DEFAULT_CATS.indexOf(name) !== -1) {
+      if (DEFAULT_CATS.indexOf(name) !== -1 || name === 'Other') {
         var removed = getRemovedDefaults();
         if (removed.indexOf(name) === -1) { removed.push(name); saveRemovedDefaults(removed); }
       } else {
@@ -421,7 +464,7 @@
         var val = document.getElementById('inputCustomCat').value.trim();
         if (val) {
           var custom = getCustomCats();
-          if (custom.indexOf(val) === -1 && DEFAULT_CATS.indexOf(val) === -1) {
+          if (custom.indexOf(val) === -1 && DEFAULT_CATS.indexOf(val) === -1 && val !== 'Other') {
             custom.push(val);
             saveCustomCats(custom);
           }
@@ -488,6 +531,7 @@
       var entries   = getEntries();
       var budget    = getBudget();
       var total     = entries.reduce(function(s,e){ return s + e.amount; }, 0);
+      currentTotal  = total;
       var remaining = budget - total;
       var pct       = budget > 0 ? Math.min((total / budget) * 100, 100) : 0;
       var overBy    = total - budget;
@@ -551,9 +595,19 @@
             plugins: {
               legend: { display: false },
               tooltip: {
-                callbacks: { label: function(ctx) { return ' ' + formatBHD(ctx.raw) + '  (' + Math.round((ctx.raw / (total || 1)) * 100) + '%)'; } },
-                backgroundColor: '#222228', borderColor: 'rgba(255,255,255,0.1)',
-                borderWidth: 1, titleColor: '#f0eff4', bodyColor: '#c8f55a', padding: 10
+                callbacks: {
+                  label: function(ctx) {
+                    var pct = total > 0 ? Math.round((ctx.raw / total) * 100) : 0;
+                    return '  ' + ctx.label + ': ' + pct + '%';
+                  }
+                },
+                backgroundColor: '#222228',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                titleColor: '#f0eff4',
+                bodyColor: '#c8f55a',
+                padding: 10,
+                displayColors: false
               }
             }
           }
@@ -605,6 +659,7 @@
     document.getElementById('catsModal').addEventListener('click', function(e) { if (e.target === this) closeCatsModal(); });
     document.getElementById('addCatBtn').addEventListener('click', addCustomCat);
     document.getElementById('newCatInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') addCustomCat(); });
+    document.getElementById('printBtn').addEventListener('click', function() { window.print(); });
     document.addEventListener('keydown', function(e) {
       var fields = ['inputAmount','inputNote','inputCustomCat'];
       if (e.key === 'Enter' && fields.indexOf(document.activeElement.id) !== -1) addExpense();
